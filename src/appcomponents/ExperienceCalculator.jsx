@@ -16,11 +16,23 @@ const ExperienceCalculator = () => {
   const calculateTotalExperience = (start, end) => {
     const startDate = new Date(start);
     const endDate = new Date(end);
-    const diffTime = Math.abs(endDate - startDate);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    const years = Math.floor(diffDays / 365);
-    const months = Math.floor((diffDays % 365) / 30);
-    const days = (diffDays % 365) % 30;
+
+    // Calculate years
+    let years = endDate.getFullYear() - startDate.getFullYear();
+    let months = endDate.getMonth() - startDate.getMonth();
+    let days = endDate.getDate() - startDate.getDate();
+
+    // Adjust for negative months or days
+    if (days < 0) {
+      months--;
+      days += new Date(endDate.getFullYear(), endDate.getMonth(), 0).getDate(); // Get last day of the previous month
+    }
+
+    if (months < 0) {
+      years--;
+      months += 12;
+    }
+
     return `${years} years, ${months} months, ${days} days`;
   };
 
@@ -38,7 +50,10 @@ const ExperienceCalculator = () => {
 
   const addExperience = () => {
     if (!validateForm()) return;
-    const totalExperience = calculateTotalExperience(formData.startDate, formData.endDate);
+    const totalExperience = calculateTotalExperience(
+      formData.startDate,
+      formData.endDate
+    );
     setExperiences([...experiences, { ...formData, totalExperience }]);
     clearForm();
   };
@@ -66,23 +81,58 @@ const ExperienceCalculator = () => {
   };
 
   const calculateOverallExperience = () => {
-    let totalDays = experiences.reduce((acc, exp) => {
+    let totalYears = 0;
+    let totalMonths = 0;
+    let totalDays = 0;
+
+    experiences.forEach((exp) => {
       const start = new Date(exp.startDate);
       const end = new Date(exp.endDate);
-      return acc + Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24));
-    }, 0);
 
-    const years = Math.floor(totalDays / 365);
-    const months = Math.floor((totalDays % 365) / 30);
-    const days = (totalDays % 365) % 30;
-    return `${years} years, ${months} months, ${days} days`;
+      // Calculate the difference in years, months, and days
+      let years = end.getFullYear() - start.getFullYear();
+      let months = end.getMonth() - start.getMonth();
+      let days = end.getDate() - start.getDate();
+
+      // Adjust for negative days or months
+      if (days < 0) {
+        months--;
+        days += new Date(end.getFullYear(), end.getMonth(), 0).getDate(); // Get the last day of the previous month
+      }
+
+      if (months < 0) {
+        years--;
+        months += 12;
+      }
+
+      // Accumulate the total years, months, and days
+      totalYears += years;
+      totalMonths += months;
+      totalDays += days;
+
+      // If totalDays exceeds 30, adjust totalMonths and totalDays
+      if (totalDays >= 30) {
+        totalMonths++;
+        totalDays -= 30;
+      }
+
+      // If totalMonths exceeds 12, adjust totalYears and totalMonths
+      if (totalMonths >= 12) {
+        totalYears++;
+        totalMonths -= 12;
+      }
+    });
+
+    return `${totalYears} years, ${totalMonths} months, ${totalDays} days`;
   };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-r from-indigo-500 to-purple-600 p-6">
       <Card className="w-full max-w-4xl p-6 shadow-2xl bg-white rounded-2xl">
         <CardContent>
-          <h2 className="text-2xl font-bold mb-6 text-center text-indigo-700">Experience Calculator</h2>
+          <h2 className="text-2xl font-bold mb-6 text-center text-indigo-700">
+            Experience Calculator
+          </h2>
           <div className="mb-6 bg-gray-100 p-4 rounded-lg shadow-md">
             <Label className="text-gray-700">Company Name</Label>
             <Input
@@ -91,7 +141,9 @@ const ExperienceCalculator = () => {
               onChange={(e) => handleInputChange("companyName", e.target.value)}
               className="mb-2 p-2 border rounded-lg w-full"
             />
-            {errors.companyName && <p className="text-red-500 text-sm">{errors.companyName}</p>}
+            {errors.companyName && (
+              <p className="text-red-500 text-sm">{errors.companyName}</p>
+            )}
 
             <Label className="text-gray-700">Start Date</Label>
             <Input
@@ -108,12 +160,29 @@ const ExperienceCalculator = () => {
               onChange={(e) => handleInputChange("endDate", e.target.value)}
               className="mb-4 p-2 border rounded-lg w-full"
             />
-            {errors.date && <p className="text-red-500 text-sm">{errors.date}</p>}
+            {errors.date && (
+              <p className="text-red-500 text-sm">{errors.date}</p>
+            )}
 
             <div className="flex justify-between">
-              <Button onClick={addExperience} className="bg-green-500 hover:bg-green-700 text-white px-4 py-2 rounded-lg">Add Experience</Button>
-              <Button onClick={clearForm} className="bg-yellow-500 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg">Reset</Button>
-              <Button onClick={clearExperiences} className="bg-red-500 hover:bg-red-700 text-white px-4 py-2 rounded-lg">Clear All</Button>
+              <Button
+                onClick={addExperience}
+                className="bg-green-500 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+              >
+                Add Experience
+              </Button>
+              <Button
+                onClick={clearForm}
+                className="bg-yellow-500 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg"
+              >
+                Reset
+              </Button>
+              <Button
+                onClick={clearExperiences}
+                className="bg-red-500 hover:bg-red-700 text-white px-4 py-2 rounded-lg"
+              >
+                Clear All
+              </Button>
             </div>
           </div>
           <table className="w-full border-collapse border border-gray-300 shadow-lg">
@@ -128,13 +197,29 @@ const ExperienceCalculator = () => {
             </thead>
             <tbody>
               {experiences.map((exp, index) => (
-                <tr key={index} className="border border-gray-300 bg-gray-50 hover:bg-gray-100">
-                  <td className="border border-gray-300 p-3 text-center">{exp.companyName}</td>
-                  <td className="border border-gray-300 p-3 text-center">{exp.startDate}</td>
-                  <td className="border border-gray-300 p-3 text-center">{exp.endDate}</td>
-                  <td className="border border-gray-300 p-3 text-center">{exp.totalExperience}</td>
+                <tr
+                  key={index}
+                  className="border border-gray-300 bg-gray-50 hover:bg-gray-100"
+                >
                   <td className="border border-gray-300 p-3 text-center">
-                    <Button onClick={() => removeExperience(index)} className="bg-red-500 hover:bg-red-700 text-white px-4 py-2 rounded-lg">Delete</Button>
+                    {exp.companyName}
+                  </td>
+                  <td className="border border-gray-300 p-3 text-center">
+                    {exp.startDate}
+                  </td>
+                  <td className="border border-gray-300 p-3 text-center">
+                    {exp.endDate}
+                  </td>
+                  <td className="border border-gray-300 p-3 text-center">
+                    {exp.totalExperience}
+                  </td>
+                  <td className="border border-gray-300 p-3 text-center">
+                    <Button
+                      onClick={() => removeExperience(index)}
+                      className="bg-red-500 hover:bg-red-700 text-white px-4 py-2 rounded-lg"
+                    >
+                      Delete
+                    </Button>
                   </td>
                 </tr>
               ))}
